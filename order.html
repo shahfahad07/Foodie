@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foodi - Confirm Order</title>
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --secondary: #4ECDC4;
+            --dark: #292F36;
+            --light: #F7FFF7;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .order-summary {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .total-amount {
+            font-size: 1.5rem;
+            color: var(--primary);
+            font-weight: bold;
+        }
+        .order-form {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .order-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            transition: background 0.3s ease;
+        }
+        .order-btn:hover {
+            background: #e05555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Confirm Your Order</h1>
+        
+        <div class="order-summary">
+            <h2>Order Summary</h2>
+            <div id="order-items-container">
+                <!-- Order items will be dynamically inserted here -->
+            </div>
+            <div class="order-item" style="border-bottom: none; padding-top: 15px;">
+                <strong>Total Amount:</strong>
+                <span class="total-amount" id="grand-total">₹0</span>
+            </div>
+        </div>
+        
+        <form id="orderForm" class="order-form">
+            <input type="hidden" id="order-data" name="orderData">
+            
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="address">Delivery Address</label>
+                <textarea id="address" name="address" required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="instructions">Special Instructions (Optional)</label>
+                <textarea id="instructions" name="instructions"></textarea>
+            </div>
+            
+            <button type="submit" class="order-btn" onclick="submitOrder(event)">Place Order</button>
+        </form>
+    </div>
+
+    <script>
+        // Load order data from localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            const orderData = JSON.parse(localStorage.getItem('currentOrder'));
+            
+            if (!orderData || !orderData.items) {
+                alert('No order items found! Please start your order again.');
+                window.location.href = 'menu.html';
+                return;
+            }
+            
+            // Display order items
+            const container = document.getElementById('order-items-container');
+            orderData.items.forEach(item => {
+                container.innerHTML += `
+                    <div class="order-item">
+                        <span>${item.name} x ${item.quantity}</span>
+                        <span>${item.itemTotal}</span>
+                    </div>
+                `;
+            });
+            
+            // Display grand total
+            document.getElementById('grand-total').textContent = orderData.grandTotal;
+            
+            // Store in hidden field
+            document.getElementById('order-data').value = JSON.stringify(orderData);
+        });
+
+        // Submit order to Google Sheets
+        async function submitOrder(e) {
+            e.preventDefault();
+            
+            const form = document.getElementById('orderForm');
+            const orderData = JSON.parse(document.getElementById('order-data').value);
+            
+            // Add customer details to order data
+            orderData.customerName = form.name.value;
+            orderData.phone = form.phone.value;
+            orderData.address = form.address.value;
+            orderData.instructions = form.instructions.value;
+            orderData.timestamp = new Date().toLocaleString();
+            
+            try {
+                const response = await fetch('https://script.google.com/macros/s/AKfycbydQdQWmBYx62pEdavMB_q7eYhzc5W-IGvroIqIATTVQvNznBO7lrFfdRD0GAj2UEE/exec', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.result === 'success') {
+                    localStorage.removeItem('currentOrder');
+                    window.location.href = 'thankyou.html';
+                } else {
+                    alert('Order submission failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Network error. Please check your connection and try again.');
+            }
+        }
+    </script>
+</body>
+</html>
